@@ -163,7 +163,7 @@
     const spinBtn = document.getElementById("spinBtn");
     
     // 默认午餐选项
-    let options = ["小炒先生", "香菇面", "青海牛肉面", "面相爷", "烩面", "椒麻鸡拌面"];
+    let options = ["小炒先生", "香菇面", "青海牛肉面", "面相爷", "烩面"];
     let currentRotation = 0;
     let isSpinning = false;
 
