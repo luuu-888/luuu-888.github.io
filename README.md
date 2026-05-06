@@ -14,14 +14,14 @@
     padding: 20px;
     touch-action: manipulation;
   }
-  h2 { color: #333; margin-bottom: 30px; }
+  h2 { color: #333; margin-bottom: 20px; }
   
   /* 添加区域样式 */
   .input-group { 
     display: flex; 
     justify-content: center; 
     gap: 10px; 
-    margin-bottom: 30px; 
+    margin-bottom: 15px; 
   }
   input { 
     padding: 12px; 
@@ -43,6 +43,41 @@
     font-weight: bold;
   }
   .add-btn:active { background-color: #06ad56; }
+
+  /* 选项列表区域样式 */
+  #options-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 30px;
+    padding: 0 10px;
+  }
+  .option-tag {
+    background-color: #e6f7ff;
+    border: 1px solid #91d5ff;
+    color: #1890ff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  .delete-btn {
+    background: none;
+    border: none;
+    color: #ff4d4f;
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0 2px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .delete-btn:hover { color: #cf1322; }
 
   /* 转盘区域样式 */
   #wheel-wrapper { 
@@ -107,6 +142,9 @@
     <button class="add-btn" onclick="addItem()">添加</button>
   </div>
 
+  <!-- 新增：显示所有选项及删除按钮 -->
+  <div id="options-list"></div>
+
   <div id="wheel-wrapper">
     <div id="pointer"></div>
     <!-- 物理尺寸为600x600，CSS尺寸为300x300，以解决移动端Canvas文字模糊问题 -->
@@ -132,6 +170,35 @@
     // 预设的高级配色表
     const colors = ["#ff9e9d", "#ffb56b", "#f9e076", "#c3e27d", "#89d3e8", "#c8a2c8", "#ffc0cb", "#ffd700", "#98fb98", "#afeeee"];
 
+    // 渲染选项列表（新增功能）
+    function renderOptionsList() {
+      const listContainer = document.getElementById("options-list");
+      listContainer.innerHTML = "";
+      options.forEach((opt, index) => {
+        const tag = document.createElement("div");
+        tag.className = "option-tag";
+        tag.innerHTML = `
+          <span>${opt}</span>
+          <button class="delete-btn" onclick="deleteItem(${index})" title="删除">×</button>
+        `;
+        listContainer.appendChild(tag);
+      });
+    }
+
+    // 删除选项（新增功能）
+    function deleteItem(index) {
+      if (isSpinning) return;
+      if (options.length <= 2) {
+        alert("转盘至少需要保留 2 个选项哦！");
+        return;
+      }
+      const removed = options.splice(index, 1);
+      renderOptionsList();
+      drawWheel();
+      document.getElementById("result").innerText = "已删除：" + removed[0];
+    }
+
+    // 绘制转盘
     function drawWheel() {
       const numOptions = options.length;
       const arcSize = (2 * Math.PI) / numOptions;
@@ -169,6 +236,7 @@
       ctx.translate(-300, -300);
     }
 
+    // 添加选项
     function addItem() {
       if (isSpinning) return;
       const input = document.getElementById("newItem");
@@ -176,11 +244,21 @@
       if(val !== "") {
         options.push(val);
         input.value = "";
+        renderOptionsList();
         drawWheel();
         document.getElementById("result").innerText = "已成功添加：" + val;
       }
     }
 
+    // 监听回车键添加
+    document.getElementById("newItem").addEventListener("keypress", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addItem();
+      }
+    });
+
+    // 旋转逻辑
     function spin() {
       if (isSpinning || options.length === 0) return;
       isSpinning = true;
@@ -209,8 +287,11 @@
       }, 4000);
     }
 
-    // 页面加载完毕后初始化转盘
-    window.onload = drawWheel;
+    // 页面加载完毕后初始化转盘和列表
+    window.onload = function() {
+      renderOptionsList();
+      drawWheel();
+    };
   </script>
 </body>
 </html>
