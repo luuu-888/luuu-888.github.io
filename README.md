@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -170,7 +170,7 @@
     // 预设的高级配色表
     const colors = ["#ff9e9d", "#ffb56b", "#f9e076", "#c3e27d", "#89d3e8", "#c8a2c8", "#ffc0cb", "#ffd700", "#98fb98", "#afeeee"];
 
-    // 渲染选项列表（新增功能）
+    // 渲染选项列表
     function renderOptionsList() {
       const listContainer = document.getElementById("options-list");
       listContainer.innerHTML = "";
@@ -185,7 +185,7 @@
       });
     }
 
-    // 删除选项（新增功能）
+    // 删除选项
     function deleteItem(index) {
       if (isSpinning) return;
       if (options.length <= 2) {
@@ -276,10 +276,14 @@
       // 等待CSS动画结束（4秒）后计算结果
       setTimeout(() => {
         const actualRotation = currentRotation % 360;
-        // 抵消顺时针旋转，计算此时指向正上方(0度)的是哪一个区块的索引
-        const pointingAngle = (360 - actualRotation) % 360;
         const sliceAngle = 360 / options.length;
-        const winnerIndex = Math.floor(pointingAngle / sliceAngle);
+        
+        // 抵消顺时针旋转，计算此时指向正上方(0度)的基础角度
+        const pointingAngle = (360 - actualRotation) % 360;
+        
+        // 核心修复：因为绘制时每个扇形向前偏移了半个角度（使得文字居中），所以判定时需要加上半个扇形角度进行校正
+        const adjustedAngle = (pointingAngle + sliceAngle / 2) % 360;
+        const winnerIndex = Math.floor(adjustedAngle / sliceAngle);
 
         document.getElementById("result").innerText = "🎉 午餐决定是：" + options[winnerIndex] + "！";
         isSpinning = false;
