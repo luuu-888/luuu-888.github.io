@@ -2,7 +2,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>午餐大转盘-持久化版</title>
+<title>午餐大转盘-GitHub同步版</title>
 <style>
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -53,6 +53,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    font-size: 14px;
   }
   .delete-btn {
     background: none;
@@ -101,7 +102,7 @@
   .spin-btn:disabled { background-color: #ccc; }
   #result { 
     margin-top: 25px; 
-    font-size: 22px; 
+    font-size: 18px; 
     font-weight: bold; 
     color: #ff4d4f; 
     min-height: 33px; 
@@ -128,28 +129,71 @@
     <button class="spin-btn" id="spinBtn" onclick="spin()">开始随机</button>
   </div>
 
-  <div id="result"></div>
+  <div id="result">正在加载数据...</div>
 
   <script>
+    // ================= 配置区（请修改这里） =================
+    const OWNER = "你的用户名"; 
+    const REPO = "你的仓库名";
+    const GITHUB_TOKEN = "你的Token"; 
+    // ======================================================
+
     const canvas = document.getElementById("wheel");
     const ctx = canvas.getContext("2d");
     const spinBtn = document.getElementById("spinBtn");
+    const resultEl = document.getElementById("result");
     
-    // --- 核心修改：持久化逻辑 ---
-    const STORAGE_KEY = 'lunch_options_data';
-    const defaultOptions = ["小炒先生", "香菇面", "青海牛肉面", "面相爷", "烩面"];
-    
-    // 初始化时从本地存储读取，如果没有则使用默认值
-    let options = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultOptions;
-
-    function saveToLocal() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(options));
-    }
-    // -------------------------
-
+    let options = [];
     const colors = ["#ff9e9d", "#ffb56b", "#f9e076", "#c3e27d", "#89d3e8", "#c8a2c8", "#ffc0cb", "#ffd700", "#98fb98", "#afeeee"];
     let currentRotation = 0;
     let isSpinning = false;
+
+    // 1. 从 GitHub 读取数据
+    async function loadOptions() {
+      try {
+        const response = await fetch(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/options.json?v=${new Date().getTime()}`);
+        if (response.ok) {
+          options = await response.json();
+          resultEl.innerText = "数据加载成功";
+        } else {
+          options = ["小炒先生", "香菇面", "牛肉面"]; // 失败备选
+          resultEl.innerText = "读取失败，使用默认值";
+        }
+      } catch (e) {
+        options = ["小炒先生", "香菇面", "牛肉面"];
+        resultEl.innerText = "网络错误";
+      }
+      renderOptionsList();
+      drawWheel();
+    }
+
+    // 2. 同步到 GitHub (触发 Action)
+    async function syncToGitHub() {
+      resultEl.innerText = "⏳ 正在同步到云端...";
+      try {
+        const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/dispatches`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            event_type: 'update-options',
+            client_payload: { options: JSON.stringify(options) }
+          })
+        });
+
+        if (res.ok) {
+          resultEl.innerText = "✅ 同步中！GitHub 正在保存，预计 1 分钟后生效";
+        } else {
+          const err = await res.json();
+          resultEl.innerText = "❌ 同步失败: " + (err.message || "未知错误");
+        }
+      } catch (e) {
+        resultEl.innerText = "❌ 网络请求失败";
+      }
+    }
 
     function renderOptionsList() {
       const listContainer = document.getElementById("options-list");
@@ -157,28 +201,14 @@
       options.forEach((opt, index) => {
         const tag = document.createElement("div");
         tag.className = "option-tag";
-        tag.innerHTML = `
-          <span>${opt}</span>
-          <button class="delete-btn" onclick="deleteItem(${index})">×</button>
-        `;
+        tag.innerHTML = `<span>${opt}</span><button class="delete-btn" onclick="deleteItem(${index})">×</button>`;
         listContainer.appendChild(tag);
       });
     }
 
-    function deleteItem(index) {
-      if (isSpinning) return;
-      if (options.length <= 2) {
-        alert("转盘至少需要保留 2 个选项哦！");
-        return;
-      }
-      options.splice(index, 1);
-      saveToLocal(); // 保存修改
-      renderOptionsList();
-      drawWheel();
-    }
-
     function drawWheel() {
       const numOptions = options.length;
+      if (numOptions === 0) return;
       const arcSize = (2 * Math.PI) / numOptions;
       ctx.clearRect(0, 0, 600, 600);
       ctx.save();
@@ -212,22 +242,30 @@
       const val = input.value.trim();
       if(val !== "") {
         options.push(val);
-        saveToLocal(); // 保存修改
         input.value = "";
         renderOptionsList();
         drawWheel();
+        syncToGitHub();
       }
     }
 
-    document.getElementById("newItem").addEventListener("keypress", (e) => {
-      if (e.key === "Enter") addItem();
-    });
+    function deleteItem(index) {
+      if (isSpinning) return;
+      if (options.length <= 2) {
+        alert("至少保留 2 个选项！");
+        return;
+      }
+      options.splice(index, 1);
+      renderOptionsList();
+      drawWheel();
+      syncToGitHub();
+    }
 
     function spin() {
       if (isSpinning || options.length === 0) return;
       isSpinning = true;
       spinBtn.disabled = true;
-      document.getElementById("result").innerText = "命运的齿轮开始转动...";
+      resultEl.innerText = "命运的齿轮开始转动...";
 
       const randomDegree = Math.random() * 360;
       const baseSpins = 5 * 360; 
@@ -241,16 +279,17 @@
         const adjustedAngle = (pointingAngle + sliceAngle / 2) % 360;
         const winnerIndex = Math.floor(adjustedAngle / sliceAngle);
 
-        document.getElementById("result").innerText = "🎉 午餐决定是：" + options[winnerIndex] + "！";
+        resultEl.innerText = "🎉 午餐决定是：" + options[winnerIndex] + "！";
         isSpinning = false;
         spinBtn.disabled = false;
       }, 4000);
     }
 
-    window.onload = function() {
-      renderOptionsList();
-      drawWheel();
-    };
+    document.getElementById("newItem").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") addItem();
+    });
+
+    window.onload = loadOptions;
   </script>
 </body>
 </html>
