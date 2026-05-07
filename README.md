@@ -135,7 +135,7 @@
     // ================= 配置区（请修改这里） =================
     const OWNER = "luuu-888"; 
     const REPO = "luuu-888.github.io";
-    const GITHUB_TOKEN = "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"; 
+    const GITHUB_TOKEN = "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"; 
     // ======================================================
 
     const canvas = document.getElementById("wheel");
