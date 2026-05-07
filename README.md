@@ -1,9 +1,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<!-- 适配移动端，禁止缩放以获得类似原生App的体验 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>午餐大转盘</title>
+<title>午餐大转盘-持久化版</title>
 <style>
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -14,8 +13,6 @@
     touch-action: manipulation;
   }
   h2 { color: #333; margin-bottom: 20px; }
-  
-  /* 添加区域样式 */
   .input-group { 
     display: flex; 
     justify-content: center; 
@@ -29,28 +26,23 @@
     outline: none; 
     width: 60%; 
     font-size: 16px; 
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
   }
   .add-btn { 
     padding: 12px 20px; 
     border: none; 
-    background-color: #07c160; /* 微信绿 */
+    background-color: #07c160; 
     color: white; 
     border-radius: 8px; 
     font-size: 16px; 
     cursor: pointer; 
     font-weight: bold;
   }
-  .add-btn:active { background-color: #06ad56; }
-
-  /* 选项列表区域样式 */
   #options-list {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 10px;
     margin-bottom: 30px;
-    padding: 0 10px;
   }
   .option-tag {
     background-color: #e6f7ff;
@@ -61,8 +53,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 14px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   }
   .delete-btn {
     background: none;
@@ -70,22 +60,14 @@
     color: #ff4d4f;
     cursor: pointer;
     font-weight: bold;
-    padding: 0 2px;
     font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
-  .delete-btn:hover { color: #cf1322; }
-
-  /* 转盘区域样式 */
   #wheel-wrapper { 
     position: relative; 
     width: 300px; 
     height: 300px; 
     margin: 0 auto; 
   }
-  /* 顶部指针 */
   #pointer {
     position: absolute;
     top: -15px;
@@ -97,18 +79,14 @@
     border-right: 15px solid transparent;
     border-top: 35px solid #ff4d4f;
     z-index: 10;
-    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
   }
   #wheel {
     width: 100%;
     height: 100%;
     border-radius: 50%;
     box-shadow: 0 6px 15px rgba(0,0,0,0.15);
-    /* 核心动画：控制旋转速度和贝塞尔曲线实现阻尼减速效果 */
     transition: transform 4s cubic-bezier(0.25, 0.1, 0.15, 1);
   }
-
-  /* 底部按钮与结果展示 */
   .controls { margin-top: 40px; }
   .spin-btn { 
     background-color: #1890ff; 
@@ -119,10 +97,8 @@
     border: none;
     font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(24,144,255,0.3);
   }
-  .spin-btn:active { transform: translateY(2px); box-shadow: 0 2px 5px rgba(24,144,255,0.3); }
-  .spin-btn:disabled { background-color: #ccc; box-shadow: none; cursor: not-allowed; }
+  .spin-btn:disabled { background-color: #ccc; }
   #result { 
     margin-top: 25px; 
     font-size: 22px; 
@@ -141,12 +117,10 @@
     <button class="add-btn" onclick="addItem()">添加</button>
   </div>
 
-  <!-- 新增：显示所有选项及删除按钮 -->
   <div id="options-list"></div>
 
   <div id="wheel-wrapper">
     <div id="pointer"></div>
-    <!-- 物理尺寸为600x600，CSS尺寸为300x300，以解决移动端Canvas文字模糊问题 -->
     <canvas id="wheel" width="600" height="600"></canvas>
   </div>
 
@@ -161,15 +135,22 @@
     const ctx = canvas.getContext("2d");
     const spinBtn = document.getElementById("spinBtn");
     
-    // 默认午餐选项
-    let options = ["小炒先生", "香菇面", "青海牛肉面", "面相爷", "烩面"];
+    // --- 核心修改：持久化逻辑 ---
+    const STORAGE_KEY = 'lunch_options_data';
+    const defaultOptions = ["小炒先生", "香菇面", "青海牛肉面", "面相爷", "烩面"];
+    
+    // 初始化时从本地存储读取，如果没有则使用默认值
+    let options = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultOptions;
+
+    function saveToLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(options));
+    }
+    // -------------------------
+
+    const colors = ["#ff9e9d", "#ffb56b", "#f9e076", "#c3e27d", "#89d3e8", "#c8a2c8", "#ffc0cb", "#ffd700", "#98fb98", "#afeeee"];
     let currentRotation = 0;
     let isSpinning = false;
 
-    // 预设的高级配色表
-    const colors = ["#ff9e9d", "#ffb56b", "#f9e076", "#c3e27d", "#89d3e8", "#c8a2c8", "#ffc0cb", "#ffd700", "#98fb98", "#afeeee"];
-
-    // 渲染选项列表
     function renderOptionsList() {
       const listContainer = document.getElementById("options-list");
       listContainer.innerHTML = "";
@@ -178,109 +159,85 @@
         tag.className = "option-tag";
         tag.innerHTML = `
           <span>${opt}</span>
-          <button class="delete-btn" onclick="deleteItem(${index})" title="删除">×</button>
+          <button class="delete-btn" onclick="deleteItem(${index})">×</button>
         `;
         listContainer.appendChild(tag);
       });
     }
 
-    // 删除选项
     function deleteItem(index) {
       if (isSpinning) return;
       if (options.length <= 2) {
         alert("转盘至少需要保留 2 个选项哦！");
         return;
       }
-      const removed = options.splice(index, 1);
+      options.splice(index, 1);
+      saveToLocal(); // 保存修改
       renderOptionsList();
       drawWheel();
-      document.getElementById("result").innerText = "已删除：" + removed[0];
     }
 
-    // 绘制转盘
     function drawWheel() {
       const numOptions = options.length;
       const arcSize = (2 * Math.PI) / numOptions;
-
       ctx.clearRect(0, 0, 600, 600);
+      ctx.save();
       ctx.translate(300, 300);
 
       for(let i = 0; i < numOptions; i++) {
-        // 计算起始角度，偏移 -90度(置顶) 并减去半个扇形角度，使得第一个选项完美居中于正上方
         const angle = i * arcSize - Math.PI / 2 - arcSize / 2; 
-        
-        // 绘制扇形
         ctx.beginPath();
         ctx.fillStyle = colors[i % colors.length];
         ctx.moveTo(0, 0);
         ctx.arc(0, 0, 300, angle, angle + arcSize, false);
         ctx.fill();
-        
-        // 绘制扇形分隔线
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // 绘制文字
         ctx.save();
         ctx.fillStyle = "#333333";
         ctx.font = "bold 28px sans-serif";
-        // 将画布原点移动到扇形中间偏外围的位置
         ctx.translate(Math.cos(angle + arcSize / 2) * 190, Math.sin(angle + arcSize / 2) * 190);
-        // 旋转画布使文字顺着半径方向
         ctx.rotate(angle + arcSize / 2 + Math.PI / 2);
         ctx.fillText(options[i], -ctx.measureText(options[i]).width / 2, 10);
         ctx.restore();
       }
-      ctx.translate(-300, -300);
+      ctx.restore();
     }
 
-    // 添加选项
     function addItem() {
       if (isSpinning) return;
       const input = document.getElementById("newItem");
       const val = input.value.trim();
       if(val !== "") {
         options.push(val);
+        saveToLocal(); // 保存修改
         input.value = "";
         renderOptionsList();
         drawWheel();
-        document.getElementById("result").innerText = "已成功添加：" + val;
       }
     }
 
-    // 监听回车键添加
-    document.getElementById("newItem").addEventListener("keypress", function(event) {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        addItem();
-      }
+    document.getElementById("newItem").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") addItem();
     });
 
-    // 旋转逻辑
     function spin() {
       if (isSpinning || options.length === 0) return;
       isSpinning = true;
       spinBtn.disabled = true;
       document.getElementById("result").innerText = "命运的齿轮开始转动...";
 
-      // 核心公平性保障：Math.random() 生成完全均匀的 [0, 1) 随机数
       const randomDegree = Math.random() * 360;
-      // 基础旋转圈数（至少转5圈增加视觉效果）
       const baseSpins = 5 * 360; 
-      
       currentRotation += baseSpins + randomDegree;
       canvas.style.transform = `rotate(${currentRotation}deg)`;
 
-      // 等待CSS动画结束（4秒）后计算结果
       setTimeout(() => {
         const actualRotation = currentRotation % 360;
         const sliceAngle = 360 / options.length;
-        
-        // 抵消顺时针旋转，计算此时指向正上方(0度)的基础角度
         const pointingAngle = (360 - actualRotation) % 360;
-        
-        // 核心修复：因为绘制时每个扇形向前偏移了半个角度（使得文字居中），所以判定时需要加上半个扇形角度进行校正
         const adjustedAngle = (pointingAngle + sliceAngle / 2) % 360;
         const winnerIndex = Math.floor(adjustedAngle / sliceAngle);
 
@@ -290,7 +247,6 @@
       }, 4000);
     }
 
-    // 页面加载完毕后初始化转盘和列表
     window.onload = function() {
       renderOptionsList();
       drawWheel();
