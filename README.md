@@ -37,8 +37,8 @@
 
   <script>
     // === 配置区 ===
-    const SUPABASE_URL = 'https://wfkgbfubwlxecymjtvvm.supabase.co/rest/v1';
-    const SUPABASE_KEY = 'sb_publishable_TYlYIcT9SvkZdj-T1sW3KA_UTugHksC  anon key';
+    const SUPABASE_URL = 'https://wfkgbfubwlxecymjtvvm.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_TYlYIcT9SvkZdj-T1sW3KA_UTugHksC';
     // =============
 
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
